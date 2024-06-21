@@ -1,0 +1,23 @@
+{
+  "name": "ts-batch",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "/dist"
+  ],
+  "scripts": {
+    "test": "yarn test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "github.com/ThorntonChan/ts-batch"
+  },
+  "keywords": [
+    "ts",
+    "batch"
+  ],
+  "author": "Thornton Chan",
+  "license": "MIT"
+}
