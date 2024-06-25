@@ -1,1 +1,1 @@
-export * from './src/BatchProcessor'
+export * from './src/MicroBatcher'
