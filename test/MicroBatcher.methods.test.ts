@@ -208,10 +208,24 @@ describe('MicroBatcher methods unit tests', () => {
       expect(batchId).toBeDefined();
     });
 
-    test('status NOTFOUND is returned if message does (not exist in cache or queue)', async () => {
-      const { batchId, status } = microBatcher['status']('test1');
-      expect(status).toBe(Status.NOTFOUND);
-      expect(batchId).toBeNull();
+    test('status cannot return cacheLifespan expired batch', async () => {
+      const microBatcherConfig: MicroBatcherConfigParams<any> = {
+        maxBatchSize: 10,
+        cacheLifespan: 10,
+        batchProcessFn: async (batch: any) => {},
+        start: true,
+      };
+      const microBatcher = new MicroBatcher(microBatcherConfig);
+      let firstMessage: string = '';
+      for (let i = 0; i < 120; i++) {
+        const res = microBatcher.add(`test${i}`);
+        if (i === 0) {
+          firstMessage = `test${i}`;
+        }
+      }
+      const batch = microBatcher.status(firstMessage);
+      expect(batch.status).toBe(Status.NOTFOUND);
+      expect(batch.batchId).toBeNull();
     });
   });
 
@@ -220,6 +234,31 @@ describe('MicroBatcher methods unit tests', () => {
       const status = microBatcher.batchStatus('non-existent-batch-id');
       expect(status?.status).toBe(Status.NOTFOUND);
       expect(status?.batchId).toBeNull();
+    });
+
+    test('batchStatus cannot return expired cacheLifespan batch', async () => {
+      const microBatcherConfig: MicroBatcherConfigParams<any> = {
+        maxBatchSize: 10,
+        cacheLifespan: 10,
+        batchProcessFn: async (batch: any) => {},
+        start: true,
+      };
+      const microBatcher = new MicroBatcher(microBatcherConfig);
+      let firstMessage: string = '';
+      for (let i = 0; i < 50; i++) {
+        const res = microBatcher.add(`test${i}`);
+        if (i === 0) {
+          firstMessage = `test${i}`;
+        }
+      }
+      const batch = microBatcher.status(firstMessage);
+      expect(batch.batchId).not.toBeNull();
+      for (let i = 50; i < 120; i++) {
+        microBatcher.add(`test${i}`);
+      }
+      const batchStatus = microBatcher.batchStatus(batch.batchId as string);
+      expect(batchStatus?.status).toBe(Status.NOTFOUND);
+      expect(batchStatus?.batchId).toBeNull();
     });
 
     test('should return correct status for existing batchId', () => {
