@@ -1,29 +1,29 @@
-import { describe, expect, test } from "@jest/globals";
-import { MicroBatcher } from "../src/MicroBatcher";
+import { describe, expect, test } from '@jest/globals';
+import { MicroBatcher } from '../src/MicroBatcher';
 
-describe("MicroBatcher constructor unit tests", () => {
-  describe("constructor can be templated, and should accept messages of templated type", () => {
-    test("microbatcher can be templated with string", () => {
+describe('MicroBatcher constructor unit tests', () => {
+  describe('constructor can be templated, and should accept messages of templated type', () => {
+    test('microbatcher can be templated with string', () => {
       const stringMicroBatcher = new MicroBatcher<string>({
         batchProcessFn: async (batch) => {
           console.log(batch);
         },
       });
-      stringMicroBatcher.add("test");
-      expect(stringMicroBatcher["queue"]).toContain("test");
+      stringMicroBatcher.add('test');
+      expect(stringMicroBatcher['queue']).toContain('test');
     });
 
-    test("microbatcher can be templated with number", () => {
+    test('microbatcher can be templated with number', () => {
       const numberMicroBatcher = new MicroBatcher<number>({
         batchProcessFn: async (batch) => {
           console.log(batch);
         },
       });
       numberMicroBatcher.add(1);
-      expect(numberMicroBatcher["queue"]).toContain(1);
+      expect(numberMicroBatcher['queue']).toContain(1);
     });
 
-    test("microbatcher can be templated with custom type", () => {
+    test('microbatcher can be templated with custom type', () => {
       type CustomType = {
         id: number;
         name: string;
@@ -33,12 +33,12 @@ describe("MicroBatcher constructor unit tests", () => {
           console.log(batch);
         },
       });
-      const customTypeData = { id: 1, name: "test" };
+      const customTypeData = { id: 1, name: 'test' };
       customTypeMicroBatcher.add(customTypeData);
-      expect(customTypeMicroBatcher["queue"]).toContain(customTypeData);
+      expect(customTypeMicroBatcher['queue']).toContain(customTypeData);
     });
 
-    test("microbatcher can be templated with custom class", () => {
+    test('microbatcher can be templated with custom class', () => {
       class CustomClass {
         id: number;
         name: string;
@@ -54,16 +54,16 @@ describe("MicroBatcher constructor unit tests", () => {
           console.log(batch);
         },
       });
-      const customClassData = new CustomClass(1, "test");
+      const customClassData = new CustomClass(1, 'test');
       customClassMicroBatcher.add(customClassData);
-      expect(customClassMicroBatcher["queue"]).toContain(customClassData);
+      expect(customClassMicroBatcher['queue']).toContain(customClassData);
     });
   });
-  test("microbatcher should throw error when initialized with config values less than 1", () => {
+  test('microbatcher should throw error when initialized with config values less than 0', () => {
     const invalidMicroBatcherConfig = {
-      maxBatchSize: 0,
-      maxBatchTime: 0,
-      batchProcessFn: async (batch) => {},
+      maxBatchSize: -1,
+      maxBatchTime: -1,
+      batchProcessFn: async (batch: any) => {},
       start: true,
     };
     expect(() => new MicroBatcher(invalidMicroBatcherConfig)).toThrow();

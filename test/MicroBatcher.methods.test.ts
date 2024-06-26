@@ -1,48 +1,48 @@
-import { beforeEach, describe, expect, jest, test } from "@jest/globals";
-import { MicroBatcher, MicroBatcherConfig, Status } from "../src/MicroBatcher";
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { MicroBatcher, MicroBatcherConfigParams, Status } from '../src/MicroBatcher';
 
-describe("MicroBatcher methods unit tests", () => {
+describe('MicroBatcher methods unit tests', () => {
   let microBatcher: MicroBatcher<any>;
 
   beforeEach(() => {
-    const microBatcherConfig: MicroBatcherConfig<any> = {
+    const microBatcherConfig: MicroBatcherConfigParams<any> = {
       maxBatchSize: 10,
       maxBatchTime: 1000,
-      batchProcessFn: async (batch) => {},
+      batchProcessFn: async (batch: any) => {},
       start: true,
     };
     microBatcher = new MicroBatcher(microBatcherConfig);
   });
-  describe("add method", () => {
-    test("add method should add message to the queue and return QUEUED", () => {
-      const res = microBatcher.add("test");
-      expect(microBatcher["queue"]).toContain("test");
+  describe('add method', () => {
+    test('add method should add message to the queue and return QUEUED', () => {
+      const res = microBatcher.add('test');
+      expect(microBatcher['queue']).toContain('test');
       expect(res.status).toBe(Status.QUEUED);
     });
 
-    test("add method should reject null and undefined to the queue", () => {
+    test('add method should reject null and undefined to the queue', () => {
       const nullRes = microBatcher.add(null);
       const undefRes = microBatcher.add(undefined);
-      expect(microBatcher["queue"].length).toBe(0);
+      expect(microBatcher['queue'].length).toBe(0);
       expect(nullRes.status).toBe(Status.DECLINED);
       expect(undefRes.status).toBe(Status.DECLINED);
     });
 
-    test("add method should process a batch when the maxBatchSize is Reached", () => {
+    test('add method should process a batch when the maxBatchSize is Reached', () => {
       let res;
       for (let i = 0; i < 10; i++) {
         res = microBatcher.add(`test${i}`);
       }
-      expect(microBatcher["queue"].length).toBe(0);
-      expect(res.status).toBe(Status.BATCHED);
+      expect(microBatcher['queue'].length).toBe(0);
+      expect(res?.status).toBe(Status.BATCHED);
     });
 
-    test("Consecutive/async high speed adding should be supported without synchronicity issues", async () => {
+    test('Consecutive/async high speed adding should be supported without synchronicity issues', async () => {
       const maxBatchSize = 10;
-      const microBatcherConfig: MicroBatcherConfig<any> = {
+      const microBatcherConfig: MicroBatcherConfigParams<any> = {
         maxBatchSize: maxBatchSize,
         maxBatchTime: 1000,
-        batchProcessFn: async (batch) => {},
+        batchProcessFn: async (batch: any) => {},
         allowDuplicates: true,
         start: true,
       };
@@ -59,159 +59,193 @@ describe("MicroBatcher methods unit tests", () => {
         addMessagesToMicroBatcher();
       }
       for (let i = 0; i < 10; i++) {
-        expect(microBatcher["batches"][i].length).toBe(maxBatchSize);
+        expect(microBatcher['batches'][i]?.messages.length).toBe(maxBatchSize);
       }
     });
   });
 
-  describe("start method", () => {
-    test("start method should start the batch processor", () => {
+  describe('start method', () => {
+    test('start method should start the batch processor', () => {
       microBatcher.start();
-      expect(microBatcher["config"].start).toBe(true);
-      expect(microBatcher["intervalId"]).toBeDefined();
+      expect(microBatcher['config'].start).toBe(true);
+      expect(microBatcher['intervalId']).toBeDefined();
     });
   });
 
-  describe("stop method", () => {
-    test("stop method should stop the batch processor", async () => {
+  describe('stop method', () => {
+    test('stop method should stop the batch processor', async () => {
       microBatcher.start();
       await microBatcher.stop();
-      expect(microBatcher["config"].start).toBe(false);
+      expect(microBatcher['config'].start).toBe(false);
     });
 
-    test("stop method should stop the batch processor", async () => {
+    test('stop method should stop the batch processor', async () => {
       microBatcher.start();
       await microBatcher.stop();
-      const res = microBatcher.add("test");
+      const res = microBatcher.add('test');
       expect(res.status).toBe(Status.DECLINED);
     });
 
-    test("stop method should process the remaining messages", async () => {
-      microBatcher.add("test");
+    test('stop method should process the remaining messages', async () => {
+      microBatcher.add('test');
       microBatcher.start();
       await microBatcher.stop();
-      expect(microBatcher["queue"].length).toBe(0);
+      expect(microBatcher['queue'].length).toBe(0);
     });
 
-    test("stop method can be run asynchronously", async () => {
+    test('stop method can be run asynchronously', async () => {
       microBatcher.start();
-      microBatcher.add("test");
+      microBatcher.add('test');
       microBatcher.stop();
-      await new Promise((resolve) =>
-        setTimeout(resolve, microBatcher["config"]["maxBatchTime"]),
-      );
-      expect(microBatcher["config"].start).toBe(false);
-      expect(microBatcher["queue"].length).toBe(0);
+      await new Promise((resolve) => setTimeout(resolve, microBatcher['config']['maxBatchTime']));
+      expect(microBatcher['config'].start).toBe(false);
+      expect(microBatcher['queue'].length).toBe(0);
     });
   });
 
   // see config for results caching tests
-  describe("nextBatch method", () => {
-    test("nextBatch method should return a batch of messages from the queue", () => {
+  describe('nextBatch method', () => {
+    test('nextBatch method should return a batch of messages from the queue', () => {
       for (let i = 0; i < 5; i++) {
         microBatcher.add(`test${i}`);
       }
-      const batch = microBatcher["nextBatch"]();
-      expect(batch.batchMessages.length).toBe(5);
-      expect(microBatcher["queue"].length).toBe(0);
+      const batch = microBatcher['nextBatch']();
+      expect(batch?.messages.length).toBe(5);
+      expect(microBatcher['queue'].length).toBe(0);
     });
 
-    test("nextBatch should return undefined if there is nothing in the queue", () => {
-      const batch = microBatcher["nextBatch"]();
+    test('nextBatch should return undefined if there is nothing in the queue', () => {
+      const batch = microBatcher['nextBatch']();
       expect(batch).toBe(undefined);
     });
   });
 
-  describe("processBatch method", () => {
-    test("processBatch method should process a batch of messages", async () => {
+  describe('processBatch method', () => {
+    test('processBatch method should process a batch of messages', async () => {
       const batchProcessFnMock = jest.fn(async (batch) => {});
-      const microBatcherConfig: MicroBatcherConfig<any> = {
+      const microBatcherConfig: MicroBatcherConfigParams<any> = {
         maxBatchSize: 10,
         maxBatchTime: 1000,
         batchProcessFn: batchProcessFnMock,
         start: true,
       };
       const microBatcher = new MicroBatcher(microBatcherConfig);
-      const batch = {
-        batchMessages: ["test"],
-        batchId: "test-id",
-        batchIndex: 0,
-      };
-      await microBatcher["processBatch"](batch);
-      expect(batchProcessFnMock).toHaveBeenCalledWith(["test"]);
+      microBatcher.add('test');
+      const batch = microBatcher['nextBatch']();
+      if (!batch) {
+        throw new Error(`batch was ${batch}`);
+      }
+      await microBatcher['processBatch'](batch);
+      expect(batchProcessFnMock).toHaveBeenCalledWith(['test']);
     });
 
-    test("processBatch method should update the batch status with RESOLVED if completed scucessfully", async () => {
-      const batch = {
-        batchMessages: ["test"],
-        batchId: "test-id",
-        batchIndex: 0,
-      };
-      await microBatcher["processBatch"](batch);
-      expect(microBatcher["batchStatus"][0]).toBe(Status.RESOLVED);
+    test('processBatch method should update the batch status with RESOLVED if completed successfully', async () => {
+      microBatcher.add('test');
+
+      const batch = microBatcher['nextBatch']();
+      if (!batch) {
+        throw new Error(`batch was ${batch}`);
+      }
+      await microBatcher['processBatch'](batch);
+      const x = microBatcher['batches'][0];
+      expect(microBatcher['batches'][0]?.status).toBe(Status.RESOLVED);
     });
 
-    test("processBatch method should update the batch status with REJECTED if errored", async () => {
+    test('processBatch method should update the batch status with REJECTED if errored', async () => {
       const errorBatcher = new MicroBatcher<any>({
         maxBatchSize: 1,
         batchProcessFn: async (batch) => {
           throw new Error();
         },
       });
-      errorBatcher.add("test");
+      errorBatcher.add('test');
       // wait for processing
       await new Promise((resolve) => setTimeout(resolve, 500));
-      expect(errorBatcher["batchStatus"][0]).toBe(Status.REJECTED);
+      expect(errorBatcher['batches'][0]?.status).toBe(Status.REJECTED);
     });
   });
 
-  describe("status method", () => {
-    test("status can correctly get status after queued (exist in queue not cache)", () => {
-      microBatcher.add("test1");
-      const { batchId, status } = microBatcher["status"]("test1");
+  describe('status method', () => {
+    test('status can correctly get status after queued (exist in queue not cache)', () => {
+      microBatcher.add('test1');
+      const { batchId, status } = microBatcher['status']('test1');
       expect(status).toBe(Status.QUEUED);
       expect(batchId).toBeDefined();
     });
 
-    test("status can correctly get status after batch (exist in cache not queue)", () => {
+    test('status can correctly get status after batch (exist in cache not queue)', async () => {
+      const microBatcherConfig: MicroBatcherConfigParams<any> = {
+        maxBatchTime: 100,
+        batchProcessFn: async (batch: any) => {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        },
+        start: true,
+      };
+      const microBatcher = new MicroBatcher(microBatcherConfig);
       for (let i = 0; i < 10; i++) {
         microBatcher.add(`test${i}`);
       }
-      const { batchId, status } = microBatcher["status"]("test1");
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      const { batchId, status } = microBatcher['status']('test1');
       expect(status).toBe(Status.BATCHED);
       expect(batchId).toBeDefined();
     });
 
-    test("status can correctly get status after processing (exist in cache not queue)", async () => {
+    test('status function can correctly get status after processing (exist in cache not queue)', async () => {
+      const microBatcherConfig: MicroBatcherConfigParams<any> = {
+        maxBatchTime: 100,
+        batchProcessFn: async (batch: any) => {
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        },
+        start: true,
+      };
+      const microBatcher = new MicroBatcher(microBatcherConfig);
       for (let i = 0; i < 10; i++) {
         microBatcher.add(`test${i}`);
       }
-      const { batchId, status } = microBatcher["status"]("test1");
-      //await processing
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const { batchId, status } = microBatcher['status']('test1');
       expect(status).toBe(Status.BATCHED);
       expect(batchId).toBeDefined();
     });
 
-    test("status NOTFOUND is returned if message does (not exist in cache or queue)", async () => {
-      const { batchId, status } = microBatcher["status"]("test1");
+    test('status NOTFOUND is returned if message does (not exist in cache or queue)', async () => {
+      const { batchId, status } = microBatcher['status']('test1');
       expect(status).toBe(Status.NOTFOUND);
       expect(batchId).toBeNull();
     });
   });
 
-  describe("messageToKey method", () => {
-    test("messageToKey method should convert an object to a string", () => {
-      const message = { test: "test" };
-      const stringMessage = microBatcher["messageToKey"](message);
+  describe('batchStatus method', () => {
+    test('should return NOTFOUND status for non-existent batchId', () => {
+      const status = microBatcher.batchStatus('non-existent-batch-id');
+      expect(status?.status).toBe(Status.NOTFOUND);
+      expect(status?.batchId).toBeNull();
+    });
+
+    test('should return correct status for existing batchId', () => {
+      const message = 'test-message';
+      for (let i = 0; i < 10; i++) {
+        microBatcher.add(message + i);
+      }
+      const status = microBatcher.status('test-message1');
+      const batchStatus = microBatcher.batchStatus(status.batchId as string);
+      expect(batchStatus?.status).toBe(Status.BATCHED);
+      expect(batchStatus?.batchId).toBe(status.batchId);
+    });
+  });
+
+  describe('messageToKey method', () => {
+    test('messageToKey method should convert an object to a string', () => {
+      const message = { test: 'test' };
+      const stringMessage = microBatcher['messageToKey'](message);
       expect(stringMessage).toBe(JSON.stringify(message));
     });
 
     // an obsolete test as javascript classes are objects and can be JSON.stringified
     // if a class instance is not stringifiable => expect(stringMessage).toBe(message.toString());
 
-    test("messageToKey method should convert a class instance to a string", () => {
-      const input = "test";
+    test('messageToKey method should convert a class instance to a string', () => {
+      const input = 'test';
 
       class TestClass {
         constructor(public test: string) {}
@@ -222,7 +256,7 @@ describe("MicroBatcher methods unit tests", () => {
       }
 
       const message = new TestClass(input);
-      const stringMessage = microBatcher["messageToKey"](message);
+      const stringMessage = microBatcher['messageToKey'](message);
       expect(stringMessage).toBe(JSON.stringify(message));
     });
   });

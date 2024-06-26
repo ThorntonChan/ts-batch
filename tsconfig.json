@@ -3,9 +3,13 @@
     "module": "commonjs",
     "target": "es2019",
     "declaration": true,
-    "outDir": "./dist"
+    "outDir": "./dist",
+    "strict": true
   },
   "include": [
     "src/**/*"
+  ],
+  "exclude": [
+    "test/**/*.ts"
   ]
 }
