@@ -214,12 +214,10 @@ export class MicroBatcher<T> {
       if (!batch) {
         return { batchId: null, status: Status.NOTFOUND };
       }
-      if (batch) {
-        return {
-          batchId: batch.batchId,
-          status: batch.status,
-        };
-      }
+      return {
+        batchId: batch.batchId,
+        status: batch.status,
+      };
     } catch (e) {
       throw new TSBatchError(e as Error);
     }
