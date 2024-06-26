@@ -163,6 +163,23 @@ export class MicroBatcher<T> {
     }
   }
 
+  public status(message: T) {
+    try {
+      const batch = this.stringToBatch.get(this.messageToKey(message));
+      if (batch) {
+        return {
+          batchId: batch.batchId,
+          status: this.batchStatus[batch.index],
+        };
+      } else if (batch === null) {
+        return { batchId: null, status: Status.QUEUED };
+      }
+      return { batchId: null, status: Status.NOTFOUND };
+    } catch (e) {
+      throw new TSBatchError(e);
+    }
+  }
+
   /**
    Synchronous by design. If a new message is added while nextBatch is running,
    the new message will be added to the queue array in the add method.
@@ -218,23 +235,6 @@ export class MicroBatcher<T> {
         .catch((error) => {
           this.batchStatus[batch.batchIndex] = Status.REJECTED;
         });
-    } catch (e) {
-      throw new TSBatchError(e);
-    }
-  }
-
-  private status(message: T) {
-    try {
-      const batch = this.stringToBatch.get(this.messageToKey(message));
-      if (batch) {
-        return {
-          batchId: batch.batchId,
-          status: this.batchStatus[batch.index],
-        };
-      } else if (batch === null) {
-        return { batchId: null, status: Status.QUEUED };
-      }
-      return { batchId: null, status: Status.NOTFOUND };
     } catch (e) {
       throw new TSBatchError(e);
     }
