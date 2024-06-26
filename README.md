@@ -1,14 +1,12 @@
 # ts-batch
 
 `ts-batch` is a simple and configurable tool designed to process messages in batches. It uses JavaScript's native Maps
-as
-its built-in cache, providing efficient and fast operations.
+as its built-in cache, providing efficient and fast operations.
 
 ## Installation
 
 You can install `ts-batch` using your package manager. First, make sure you have [Node.js](https://nodejs.org/)
-installed on your
-machine. Then, open your terminal and run the following command:
+installed on your machine. Then, open your terminal and run the following command:
 
 ```bash
 npm install ts-batch
@@ -27,8 +25,10 @@ import {MicroBatcher} from 'ts-batch';
 When creating a new instance of `MicroBatcher`, you can provide a configuration object with the following properties:
 
 - `maxBatchSize`: The maximum number of messages that can be included in a batch. Default is `10`.
+  If set to `0`, the batch will be not be processed until the next MaxBatchTime interval (this is not recommended,
+  as it can lead to memory issues if throughput is too high).
 - `maxBatchTime`: The maximum amount of time (in milliseconds) that a batch can wait before being processed. Default
-  is `1000`.
+  is `1000`. If set to `0`, the batch will be not be processed until MaxBatchSize is reached.
 - `batchProcessFn`: A function that will be called to process each batch of messages.
 - `start`: A boolean indicating whether the `MicroBatcher` should accept and start processing batches immediately after
   instantiation. Default is `false`.
@@ -137,7 +137,7 @@ As this project is designed to be a simple and quick tool, it has some limitatio
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a pull request.
+Contributions are welcome! Please feel free to submit a pull request at https://github.com/ThorntonChan/ts-batch
 
 ## License
 

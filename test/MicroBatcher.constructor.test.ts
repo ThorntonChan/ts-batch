@@ -59,10 +59,21 @@ describe('MicroBatcher constructor unit tests', () => {
       expect(customClassMicroBatcher['queue']).toContain(customClassData);
     });
   });
+
   test('microbatcher should throw error when initialized with config values less than 0', () => {
     const invalidMicroBatcherConfig = {
       maxBatchSize: -1,
       maxBatchTime: -1,
+      batchProcessFn: async (batch: any) => {},
+      start: true,
+    };
+    expect(() => new MicroBatcher(invalidMicroBatcherConfig)).toThrow();
+  });
+
+  test('microbatcher should throw error when initialized with maxBatchSize and maxBatchTime === 0', () => {
+    const invalidMicroBatcherConfig = {
+      maxBatchSize: 0,
+      maxBatchTime: 0,
       batchProcessFn: async (batch: any) => {},
       start: true,
     };

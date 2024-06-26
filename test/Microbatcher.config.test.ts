@@ -17,6 +17,19 @@ describe('MicroBatcher configuration', () => {
     expect(batchProcessFnMock).toHaveBeenCalledTimes(2);
   });
 
+  test('maxBatchSize set to 0 does not trigger batch processing', async () => {
+    const batchProcessFnMock = jest.fn(async (batch) => {});
+    const microBatcher = new MicroBatcher({
+      maxBatchSize: 0,
+      maxBatchTime: 2000,
+      batchProcessFn: batchProcessFnMock,
+    });
+    for (let i = 0; i < 100; i++) {
+      microBatcher.add(`test${i}`);
+    }
+    expect(batchProcessFnMock).not.toHaveBeenCalled();
+  });
+
   test('maxBatchTime limits the batch time', async () => {
     const batchProcessFnMock = jest.fn(async (batch) => {});
     const microBatcher = new MicroBatcher({
@@ -26,6 +39,19 @@ describe('MicroBatcher configuration', () => {
     microBatcher.add('test1');
     await new Promise((resolve) => setTimeout(resolve, 1000));
     expect(batchProcessFnMock).toHaveBeenCalledTimes(1);
+  });
+
+  test('maxBatchTime set to 0 does not trigger timer based batch processing', async () => {
+    const batchProcessFnMock = jest.fn(async (batch) => {});
+    const microBatcher = new MicroBatcher({
+      maxBatchTime: 0,
+      batchProcessFn: batchProcessFnMock,
+    });
+    for (let i = 0; i < 3; i++) {
+      microBatcher.add(`test${i}`);
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
+    expect(batchProcessFnMock).not.toHaveBeenCalled();
   });
 
   test('batchProcessFn is used to process batches', async () => {

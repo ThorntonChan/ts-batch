@@ -22,8 +22,8 @@ export enum Status {
  batchProcessFn: The function that will be called to process the batch.
  It should return a Promise and must be provided on initialization.
  hashFn: Optional function that will be called uniquely hash the message. It should return a unique reference.
- maxBatchSize: The maximum number of messages that can be in a batch. Default is 10
- maxBatchTime: The maximum time a batch can be in the queue before it is processed. Default is 10000ms
+ maxBatchSize: The maximum number of messages that can be in a batch. Default is 10. 0 means no limit.
+ maxBatchTime: The maximum time a batch can be in the queue before it is processed. Default is 10000ms. 0 means no limit.
  cacheLifespan: The number of batching cycles after which a message is forgotten. Default is 100 cycles
  allowDuplicates: Whether to allow duplicate messages in the queue.
  If duplicates are allowed and status is called, it will return the latest batching event.
@@ -74,6 +74,12 @@ export class MicroBatcher<T> {
         cause: 'invalid config',
       });
     }
+    if (this.config.maxBatchSize === 0 && this.config.maxBatchTime === 0) {
+      throw new TSBatchError({
+        message: 'maxBatchSize, and maxBatchTime cannot both be equal to 0',
+        cause: 'invalid config',
+      });
+    }
     this.batches = new Array(this.config.cacheLifespan);
     if (!this.config.batchProcessFn) {
       throw new TSBatchError({
@@ -99,7 +105,7 @@ export class MicroBatcher<T> {
       }
       this.queue.push(message);
       this.stringToBatchId.set(this.messageToKey(message), null);
-      if (this.queue.length >= this.config.maxBatchSize) {
+      if (this.config.maxBatchSize !== 0 && this.queue.length >= this.config.maxBatchSize) {
         const nextBatch = this.nextBatch();
         if (nextBatch) {
           this.processBatch(nextBatch);
@@ -121,12 +127,14 @@ export class MicroBatcher<T> {
       if (this.intervalId) {
         clearInterval(this.intervalId);
       }
-      this.intervalId = setInterval(() => {
-        const nextBatch = this.nextBatch();
-        if (nextBatch) {
-          this.processBatch(nextBatch);
-        }
-      }, this.config.maxBatchTime);
+      if (this.config.maxBatchTime > 0) {
+        this.intervalId = setInterval(() => {
+          const nextBatch = this.nextBatch();
+          if (nextBatch) {
+            this.processBatch(nextBatch);
+          }
+        }, this.config.maxBatchTime);
+      }
     } catch (e) {
       throw new TSBatchError(e as Error);
     }
