@@ -1,5 +1,5 @@
 import {TSBatchError} from "./TSBatchError";
-import {uuidv4} from "./lib";
+import {uuidv4} from "./util";
 
 /**
  batchProcessFn: The function that will be called to process the batch.
@@ -9,13 +9,14 @@ import {uuidv4} from "./lib";
  maxBatchTime: The maximum time a batch can be in the queue before it is processed. Default is 10000ms
  cacheLifespan: The number of batching cycles after which a message is forgotten. Default is 100 cycles
  allowDuplicates: Whether to allow duplicate messages in the queue.
+ If duplicates are allowed and status is called, it will return the latest batching event.
  Duplicates are determined by strict equality within the Cache. Default is false
  start: Whether the batch processor is accepting new messages. Default is true.
  **/
-type Config<T> = Partial<OptionalConfig<T>> & {
+export type MicroBatcherConfig<T> = Partial<MicroBatcherOptionalConfig<T>> & {
   batchProcessFn: (batch: T[]) => Promise<void>;
 };
-type OptionalConfig<T> = {
+type MicroBatcherOptionalConfig<T> = {
   hashFn: (message: T) => string;
   maxBatchSize: number;
   maxBatchTime: number;
@@ -32,7 +33,7 @@ type OptionalConfig<T> = {
  Declined: The message was not added to the queue.
  NotFound: The message was not found in the queue or cache.
  **/
-enum Status {
+export enum Status {
   QUEUED = "QUEUED",
   BATCHED = "BATCHED",
   RESOLVED = "RESOLVED",
@@ -49,8 +50,8 @@ type Batch<T> = {
   batchIndex: number;
 };
 
-class MicroBatcher<T> {
-  private config: Config<T> = {
+export class MicroBatcher<T> {
+  private config: MicroBatcherConfig<T> = {
     batchProcessFn: undefined,
     maxBatchSize: 10,
     maxBatchTime: 10000,
@@ -69,8 +70,19 @@ class MicroBatcher<T> {
   private currentBatchIndex = 0;
   private intervalId: NodeJS.Timeout;
 
-  constructor(config: Config<T>) {
+  constructor(config: MicroBatcherConfig<T>) {
     this.config = { ...this.config, ...config };
+    if (
+      config.cacheLifespan < 1 ||
+      config.maxBatchSize < 1 ||
+      config.maxBatchTime < 1
+    ) {
+      throw new TSBatchError({
+        message:
+          "cacheLifespan, maxBatchSize, and maxBatchTime must be greater than 0",
+        cause: "invalid config",
+      });
+    }
     this.batches = new Array(this.config.cacheLifespan);
     this.batchStatus = new Array(this.config.cacheLifespan);
     if (!this.config.batchProcessFn) {
@@ -94,14 +106,18 @@ class MicroBatcher<T> {
       }
       if (
         !this.config.allowDuplicates &&
-        this.stringToBatch.get(this.messageToString(message))
+        this.stringToBatch.get(this.messageToKey(message)) !== undefined
       ) {
         return { batchId: null, status: Status.DECLINED };
       }
       this.queue.push(message);
+      this.stringToBatch.set(this.messageToKey(message), null);
       if (this.queue.length >= this.config.maxBatchSize) {
-        this.processBatch();
-        this.start();
+        const nextBatch = this.nextBatch();
+        if (nextBatch) {
+          this.processBatch(nextBatch);
+          return { batchId: nextBatch.batchId, status: Status.BATCHED };
+        }
       }
       return { batchId: null, status: Status.QUEUED };
     } catch (e) {
@@ -110,7 +126,7 @@ class MicroBatcher<T> {
   }
 
   /**
-   allow the batch processor to accept new messages.
+   allow the batch processor to accept new messages. and begin processing the queue.
    **/
   public start(): void {
     try {
@@ -120,7 +136,9 @@ class MicroBatcher<T> {
       }
       this.intervalId = setInterval(() => {
         const nextBatch = this.nextBatch();
-        this.processBatch(nextBatch);
+        if (nextBatch) {
+          this.processBatch(nextBatch);
+        }
       }, this.config.maxBatchTime);
     } catch (e) {
       throw new TSBatchError(e);
@@ -130,10 +148,14 @@ class MicroBatcher<T> {
   /**
    Stops the batch processor from accepting new messages. New entries will be declined.
    **/
-  async stop(): Promise<void> {
+  public async stop(): Promise<void> {
     try {
       this.config.start = false;
-      if (this.intervalId) {
+      while (this.queue.length !== 0) {
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+      }
+      // allow restart
+      if (this.config.start === false && this.intervalId) {
         clearInterval(this.intervalId);
       }
     } catch (e) {
@@ -141,36 +163,45 @@ class MicroBatcher<T> {
     }
   }
 
-  private nextBatch(): Batch<T> {
+  /**
+   Synchronous by design. If a new message is added while nextBatch is running,
+   the new message will be added to the queue array in the add method.
+   However, it will not be included in the current batch being processed by nextBatch.
+   **/
+  private nextBatch(): Batch<T> | undefined {
     try {
       const currentBatch = this.queue.slice(0, this.config.maxBatchSize);
-      const currentBatchId = uuidv4();
-      this.queue = this.queue.slice(this.config.maxBatchSize);
-      const currentBatchIndex =
-        this.currentBatchIndex++ % this.config.cacheLifespan;
-      // cycle out batch exceeding lifespan
-      if (this.batches[currentBatchIndex]) {
-        const cycledBatch: MessageString[] = this.batches[currentBatchIndex];
-        cycledBatch.forEach((message) => {
-          this.stringToBatch.delete(message);
+      if (currentBatch.length) {
+        const currentBatchId = uuidv4();
+        this.queue = this.queue.slice(this.config.maxBatchSize);
+        const currentBatchIndex =
+          this.currentBatchIndex++ % this.config.cacheLifespan;
+        // cycle out batch exceeding lifespan
+        if (this.batches[currentBatchIndex]) {
+          const cycledBatch: MessageString[] = this.batches[currentBatchIndex];
+          cycledBatch.forEach((message) => {
+            this.stringToBatch.delete(message);
+          });
+        }
+        // add new batch to cache
+        this.batches[currentBatchIndex] = [];
+        currentBatch.forEach((message) => {
+          const messageString = this.messageToKey(message) as MessageString;
+          this.stringToBatch.set(messageString, {
+            batchId: currentBatchId,
+            index: currentBatchIndex,
+          });
+          this.batches[currentBatchIndex].push(messageString);
         });
-      }
-      // add new batch to cache
-      this.batches[currentBatchIndex] = [];
-      currentBatch.forEach((message) => {
-        const messageString = this.messageToString(message) as MessageString;
-        this.stringToBatch.set(messageString, {
+        this.batchStatus[currentBatchIndex] = Status.BATCHED;
+        return {
+          batchMessages: currentBatch,
           batchId: currentBatchId,
-          index: currentBatchIndex,
-        });
-        this.batches[currentBatchIndex].push(messageString);
-      });
-      this.batchStatus[currentBatchIndex] = Status.BATCHED;
-      return {
-        batchMessages: currentBatch,
-        batchId: currentBatchId,
-        batchIndex: currentBatchIndex,
-      };
+          batchIndex: currentBatchIndex,
+        };
+      } else {
+        return undefined;
+      }
     } catch (e) {
       throw new TSBatchError(e);
     }
@@ -179,7 +210,7 @@ class MicroBatcher<T> {
   private async processBatch(batch: Batch<T>): Promise<void> {
     try {
       // execute
-      this.config
+      await this.config
         .batchProcessFn(batch.batchMessages)
         .then((result) => {
           this.batchStatus[batch.batchIndex] = Status.RESOLVED;
@@ -194,22 +225,31 @@ class MicroBatcher<T> {
 
   private status(message: T) {
     try {
-      const batch = this.stringToBatch.get(this.messageToString(message));
-      if (!batch) {
-        return { batchId: null, status: Status.NOTFOUND };
+      const batch = this.stringToBatch.get(this.messageToKey(message));
+      if (batch) {
+        return {
+          batchId: batch.batchId,
+          status: this.batchStatus[batch.index],
+        };
+      } else if (batch === null) {
+        return { batchId: null, status: Status.QUEUED };
       }
-      return { batchId: batch.batchId, status: this.batchStatus[batch.index] };
+      return { batchId: null, status: Status.NOTFOUND };
     } catch (e) {
       throw new TSBatchError(e);
     }
   }
 
-  private messageToString(message: T): string | any {
+  private messageToKey(message: T): string | any {
     try {
       if (this.config.hashFn) {
         return this.config.hashFn(message);
       } else if (typeof message === "object") {
-        return JSON.stringify(message);
+        try {
+          return JSON.stringify(message);
+        } catch (e) {
+          if (message.toString) return message.toString();
+        }
       } else if (message.toString) {
         return message.toString();
       } else {
@@ -220,5 +260,3 @@ class MicroBatcher<T> {
     }
   }
 }
-
-export default MicroBatcher;
