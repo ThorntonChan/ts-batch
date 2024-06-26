@@ -1,7 +1,7 @@
 {
   "name": "ts-batch",
-  "version": "1.0.0",
-  "description": "",
+  "version": "1.0.3",
+  "description": "Lightweight micro-batch processing library for Javascript/TypeScript",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
