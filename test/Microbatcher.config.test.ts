@@ -54,6 +54,18 @@ describe('MicroBatcher configuration', () => {
     expect(batchProcessFnMock).not.toHaveBeenCalled();
   });
 
+  test('caches are not cleared if queue is empty', async () => {
+    const microBatcher = new MicroBatcher({
+      maxBatchTime: 100,
+      cacheLifespan: 2,
+      batchProcessFn: async () => {},
+    });
+    microBatcher.add('test');
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    const status = microBatcher.status('test');
+    expect(status.batchId).not.toBeNull();
+  });
+
   test('batchProcessFn is used to process batches', async () => {
     const batchProcessFnMock = jest.fn(async (batch) => {});
     const microBatcher = new MicroBatcher({
