@@ -24,15 +24,15 @@ import {MicroBatcher} from 'ts-batch';
 
 When creating a new instance of `MicroBatcher`, you can provide a configuration object with the following properties:
 
+- `batchProcessFn`: **REQUIRED** A function that will be called to process each batch of messages.
 - `maxBatchSize`: The maximum number of messages that can be included in a batch. Default is `10`.
   If set to `0`, the batch will be not be processed until the next MaxBatchTime interval (this is not recommended,
   as it can lead to memory issues if throughput is too high).
 - `maxBatchTime`: The maximum amount of time (in milliseconds) that a batch can wait before being processed. Default
-  is `1000`. If set to `0`, the batch will be not be processed until MaxBatchSize is reached.
-- `batchProcessFn`: A function that will be called to process each batch of messages.
+  is `10000`. If set to `0`, the batch will be not be processed until MaxBatchSize is reached.
 - `start`: A boolean indicating whether the `MicroBatcher` should accept and start processing batches immediately after
-  instantiation. Default is `false`.
-- `allowDuplicates`: A boolean indicating whether duplicate messages are allowed in the queue. Default is `true`.
+  instantiation. Default is `true`.
+- `allowDuplicates`: A boolean indicating whether duplicate messages are allowed in the queue. Default is `false`.
 - `hashFn`: A user-defined function to hash the messages. If not provided, objects and classes are converted to a string
   for hashing.
 
