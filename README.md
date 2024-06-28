@@ -94,8 +94,11 @@ As this project is designed to be a simple and quick tool, it has some limitatio
 
 - Javascript native "collections" are referential. To circumvent this, objects and classes are converted to a JSON
   string (via `JSON.stringify`) before being used as a key. This is neither true strict or true referential equality.
+  Users must also be aware that JSON.stringify() is not deterministic and may not be suitable for all use cases.
   Tight equality checks can be achieved by providing a user-defined `hashFn`. Classes can also provide a `toString()`
-  method or override a `toJSON()` method to return a string representation of the class instance.
+  method or override a `toJSON()` method to return a string representation of the class instance. Known limitations:
+    - **Order of properties:** The order of properties in an object is not guaranteed. So, two objects with the same
+      properties in a different order will have different string representations.
     - **Undefined values:** Object conversion to string converts undefined to 'NULL'
     - **Circular References:** JSON.stringify() will throw an error when there are circular references in the object. A
       circular reference occurs when an object property refers to the object itself.
