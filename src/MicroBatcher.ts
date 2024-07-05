@@ -147,7 +147,10 @@ export class MicroBatcher<T> {
     try {
       this.config.start = false;
       while (this.queue.length !== 0) {
-        await new Promise((resolve) => setTimeout(resolve, 2500));
+        const batch = this.nextBatch();
+        if (batch) {
+          this.processBatch(batch);
+        }
       }
       // allow restart
       if (this.config.start === false && this.intervalId) {
@@ -175,24 +178,7 @@ export class MicroBatcher<T> {
         return { batchId: null, status: Status.NOTFOUND };
       }
       const batchId = this.stringToBatchId.get(this.messageToKey(message));
-      if (batchId === null) {
-        return { batchId: null, status: Status.QUEUED };
-      }
-      if (batchId === undefined) {
-        return { batchId: null, status: Status.NOTFOUND };
-      }
-      const batchIndex = this.batchIdToBatchIndex.get(batchId);
-      if (batchIndex === undefined) {
-        return { batchId: null, status: Status.NOTFOUND };
-      }
-      const batch = this.batches[batchIndex];
-      if (!batch) {
-        return { batchId: null, status: Status.NOTFOUND };
-      }
-      return {
-        batchId: batch.batchId,
-        status: batch.status,
-      };
+      return batchId ? this.batchStatus(batchId) : { batchId: null, status: Status.NOTFOUND };
     } catch (e) {
       throw new TSBatchError(e as Error);
     }
